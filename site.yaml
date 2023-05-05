@@ -67,7 +67,7 @@
     - name: Test haproxy
       uri:
         url: "http://{{ hostvars[item]['ansible_default_ipv4']['address'] 
-}}:5000/"
+}}:3000/"
         method: GET
         status_code: 200
       with_items:
