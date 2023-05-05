@@ -1,0 +1,19 @@
+Host deva
+  HostName 89.46.86.111
+  User ubuntu
+  ProxyJump bastion
+
+Host devb
+  HostName 89.42.141.52
+  User ubuntu
+  ProxyJump bastion
+
+Host devc
+  HostName 89.42.141.243
+  User ubuntu
+  ProxyJump bastion
+
+Host bastionnso
+  HostName 188.95.226.76
+  User ubuntu
+  IdentityFile ~/.ssh/id_rsa
