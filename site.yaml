@@ -1,82 +1,83 @@
-- hosts: deva,devb,devc
+---
+- hosts: all
+  gather_facts: yes
   become: yes
   tasks:
-    - name: Create .ssh directory
-      file:
-        path: ~/.ssh
-        state: directory
-        mode: "0700"
+    - name: Update package cache
+      apt:
+        update_cache: yes
 
-    - name: Add SSH key to authorized_keys
-      authorized_key:
-        user: ubuntu
-        state: present
-        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
-# Installs and configures haproxy on the haproxy host
-- hosts: haproxy
+    - name: Upgrade packages
+      apt:
+        upgrade: yes
+        autoremove: yes
+        autoclean: yes
+#installs and configures haproxy
+- hosts: HAproxy
   become: yes
+  become_method: sudo
   tasks:
-    - name: Install haproxy
+    - name: HAproxy Update
+      apt:
+        update_cache: yes
+
+    - name: Install HAproxy
       apt:
         name: haproxy
-        state: present
-      notify: restart haproxy
+        state: latest
 
-    - name: Configure haproxy
+    - name: Configure HAproxy
       template:
-        src: haproxy.cfg
-        dest: /etc/haproxy/haproxy.cfg
-      notify: restart haproxy
+        src: haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg.j2
+
+    - name: Restart HAproxy
+      become: yes
+      service:
+        name: haproxy
+        state: restarted
+
 # Deploys and tests the flask app on webservers
-- hosts: deva,devb,devc
+- hosts: webservers
   become: yes
+  become_method: sudo
   tasks:
-    - name: Install Python and Flask
+
+    - name: Webservers update
       apt:
-        name:
-          - python3
-          - python3-pip
-        state: present
+        update_cache: yes
 
-    - name: Copy Flask app
-      hosts: deva, devb, devc
-      become: true
-  tasks:
-    - name: Create Flask app directory
-      file:
-        path: /opt/flask-app
-        state: directory
-        mode: 0755
-      changed_when: false
-      check_mode: no
+    - name: install python3-pip
+      apt:
+        name: python3-pip
+        state: latest
+        update_cache: yes
 
-    - name: Copy Flask app files
+    - name: flask installation
+      pip:
+        name: flask
+        state: latest
+
+    - name: install Gunicorn
+      apt:
+        name: gunicorn
+
+    - name: copy the flask app code to the servers
       copy:
-        src: vrvd.py
-        dest: /opt/flask-app
-      notify:
-        - start flask app
-  handlers:
-   - name: start flask app
-     service:
-      name: vrvd.py
-      state: started
-- hosts: haproxy
-  become: yes
-  tasks:
-    - name: Test haproxy
-      uri:
-        url: "http://{{ hostvars[item]['ansible_default_ipv4']['address'] 
-}}:3000/"
-        method: GET
-        status_code: 200
-      with_items:
-        - deva
-        - devb
-        - devc
+        src:  /$PWD/vrvd.py
+        dest: /home/ubuntu/vrvd.py
+        owner: ubuntu
+        mode: '0644'
 
-  handlers:
-  - name: restart haproxy
-    service:
-      name: haproxy
-      state: restarted
+    - name: execute the flask-app deployment
+      shell: gunicorn -w 2 -D -b 0.0.0.0:3000 vrvd:app
+
+- hosts: HAproxy
+  become: yes
+  become_method: sudo
+  tasks:
+    - name: Restart HAproxy
+      become: yes
+      service:
+            name: haproxy
+            state: restarted
